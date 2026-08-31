@@ -39,6 +39,8 @@ jobs:
           NEXT_PUBLIC_GITHUB_PAGES: 'true'
       - name: 配置 GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: 上传网站
         uses: actions/upload-pages-artifact@v4
         with:
