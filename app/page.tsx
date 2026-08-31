@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 type Task = { id: string; text: string; done: boolean; date: string };
 type Expense = { id: string; title: string; amount: number; category: string; date: string };
 type NewsItem = { id: string; title: string; source: string; url: string; publishedAt: string };
+type FitnessItem = { id: 'dance' | 'vocal'; name: string; note: string; icon: string; done: boolean; date: string };
 const todayKey = () => new Date().toLocaleDateString('sv-SE');
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
 const newsPath = process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true' ? '/task-daily/news.json' : '/news.json';
@@ -18,9 +19,10 @@ const msUntilNextBeijingEight = () => {
 const defaultTasks = ['晨间阅读 30 分钟', '完成今天最重要的一件事', '整理今日学习笔记'];
 
 export default function Home() {
-  const [active, setActive] = useState<'plan' | 'assets' | 'news'>('plan');
+  const [active, setActive] = useState<'plan' | 'fitness' | 'assets' | 'news'>('plan');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [fitness, setFitness] = useState<FitnessItem[]>([]);
   const [taskText, setTaskText] = useState('');
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -33,10 +35,17 @@ export default function Home() {
     const todaysTasks = storedTasks.filter((task) => task.date === today);
     setTasks(todaysTasks.length ? todaysTasks : defaultTasks.map((text, i) => ({ id: `${today}-${i}`, text, done: false, date: today })));
     setExpenses(JSON.parse(localStorage.getItem('nuannuan-expenses') || '[]'));
+    const storedFitness = JSON.parse(localStorage.getItem('nuannuan-fitness') || '[]') as FitnessItem[];
+    const todaysFitness = storedFitness.filter((item) => item.date === today);
+    setFitness(todaysFitness.length ? todaysFitness : [
+      { id: 'dance', name: '跳舞', note: '舒展身体，跟着节奏快乐运动', icon: '♫', done: false, date: today },
+      { id: 'vocal', name: '声乐', note: '练习气息和发声，找到自己的声音', icon: '♪', done: false, date: today },
+    ]);
     setReady(true);
   }, [today]);
   useEffect(() => { if (ready) localStorage.setItem('nuannuan-tasks', JSON.stringify(tasks)); }, [tasks, ready]);
   useEffect(() => { if (ready) localStorage.setItem('nuannuan-expenses', JSON.stringify(expenses)); }, [expenses, ready]);
+  useEffect(() => { if (ready) localStorage.setItem('nuannuan-fitness', JSON.stringify(fitness)); }, [fitness, ready]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setNews([]);
@@ -66,14 +75,18 @@ export default function Home() {
     <div className="shell"><aside className="sidebar">
       <div className="hello"><div className="sun">☀</div><p>今天也要</p><strong>闪闪发光呀</strong><small>{dateText}</small></div>
       <nav aria-label="主要功能">
-        <button className={active === 'plan' ? 'active' : ''} onClick={() => setActive('plan')}><i>✓</i><span>每日计划<small>把今天过得充实</small></span></button>
+        <button className={active === 'plan' ? 'active' : ''} onClick={() => setActive('plan')}><i>✓</i><span>今日计划<small>把今天过得充实</small></span></button>
+        <button className={active === 'fitness' ? 'active' : ''} onClick={() => setActive('fitness')}><i>♬</i><span>健身打卡<small>让身体充满活力</small></span></button>
         <button className={active === 'assets' ? 'active' : ''} onClick={() => setActive('assets')}><i>¥</i><span>资产管理<small>认真记录每一笔</small></span></button>
-        <button className={active === 'news' ? 'active' : ''} onClick={() => setActive('news')}><i>◉</i><span>每日热点<small>看见更大的世界</small></span></button>
+        <button className={active === 'news' ? 'active' : ''} onClick={() => setActive('news')}><i>◉</i><span>今日热点<small>看见更大的世界</small></span></button>
       </nav><blockquote>“每天进步一点点，<br />日子就会闪闪发光。”<span>— 暖暖</span></blockquote>
     </aside><section className="content">
       {active === 'plan' && <><div className="page-title"><div><p>DAILY PLAN</p><h1>今天，想成为更好的自己 ♡</h1><span>完成一件，勾掉一件。小小的坚持，也值得被看见。</span></div><div className="progress-ring" style={{ '--progress': `${tasks.length ? completed / tasks.length * 360 : 0}deg` } as React.CSSProperties}><b>{completed}/{tasks.length}</b><small>已完成</small></div></div>
         <form className="task-input" onSubmit={addTask}><span>＋</span><input value={taskText} onChange={(e) => setTaskText(e.target.value)} placeholder="写下今天想完成的一件事..." /><button>添加计划</button></form>
         <div className="task-list">{tasks.map((task, index) => <div className={`task ${task.done ? 'done' : ''}`} key={task.id}><button className="check" onClick={() => setTasks((items) => items.map((item) => item.id === task.id ? { ...item, done: !item.done } : item))}>{task.done ? '✓' : ''}</button><div><small>今日计划 {String(index + 1).padStart(2, '0')}</small><p>{task.text}</p></div><button className="delete" onClick={() => setTasks((items) => items.filter((item) => item.id !== task.id))} aria-label={`删除${task.text}`}>×</button></div>)}{!tasks.length && <div className="empty">今天还没有计划，写下第一件想完成的事吧。</div>}</div><div className="reset-note">✦ 每天零点，计划会自动开启新的一页</div></>}
+      {active === 'fitness' && <><div className="page-title"><div><p>FITNESS CHECK-IN</p><h1>今天，也要元气满满 ♡</h1><span>动一动、唱一唱，用喜欢的方式照顾自己的身体。</span></div><div className="progress-ring" style={{ '--progress': `${fitness.filter(item => item.done).length / 2 * 360}deg` } as React.CSSProperties}><b>{fitness.filter(item => item.done).length}/2</b><small>已打卡</small></div></div>
+        <div className="fitness-grid">{fitness.map((item) => <article className={item.done ? 'checked' : ''} key={item.id}><div className="fitness-icon">{item.icon}</div><div><small>今日运动</small><h2>{item.name}</h2><p>{item.note}</p></div><button onClick={() => setFitness(items => items.map(current => current.id === item.id ? { ...current, done: !current.done } : current))}>{item.done ? '✓ 已打卡' : '打卡'}</button></article>)}</div>
+        <div className="fitness-quote">“不是为了变成别人，而是为了成为更有活力的自己。”</div><div className="reset-note">✦ 健身打卡每天零点自动重置</div></>}
       {active === 'assets' && <><div className="page-title"><div><p>ASSET NOTE</p><h1>认真生活，也认真记账</h1><span>看清每一笔去向，让花钱变得更从容。</span></div><button className="pink-button" onClick={() => setExpenseOpen(!expenseOpen)}>＋ 记一笔</button></div>
         <div className="money-cards"><div><small>今日支出</small><strong>{money(dailySpend)}</strong><span>共 {expenses.filter(i => i.date === today).length} 笔记录</span></div><div><small>本月支出</small><strong>{money(monthlySpend)}</strong><span>{today.slice(0, 7).replace('-', ' 年 ')} 月</span></div><div><small>给自己的提醒</small><strong className="quote">花得明白<br/>才能存得安心</strong></div></div>
         {expenseOpen && <form className="expense-form" onSubmit={addExpense}><input name="title" placeholder="花在了哪里？" required/><input name="amount" type="number" min="0.01" step="0.01" placeholder="金额" required/><select name="category"><option>餐饮</option><option>交通</option><option>学习</option><option>购物</option><option>其他</option></select><button>保存记录</button></form>}
