@@ -7,6 +7,7 @@ type Expense = { id: string; title: string; amount: number; category: string; da
 type NewsItem = { id: string; title: string; source: string; url: string; publishedAt: string };
 const todayKey = () => new Date().toLocaleDateString('sv-SE');
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+const newsPath = process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true' ? '/task-daily/news.json' : '/news.json';
 const msUntilNextBeijingEight = () => {
   const now = new Date();
   const beijing = new Date(now.getTime() + 8 * 60 * 60 * 1000);
@@ -47,13 +48,13 @@ export default function Home() {
   useEffect(() => {
     if (active !== 'news' || newsStatus !== 'idle') return;
     setNewsStatus('loading');
-    fetch('/api/news').then(async (response) => {
+    fetch(`${newsPath}?v=${newsRefreshTick}`).then(async (response) => {
       if (!response.ok) throw new Error('news unavailable');
       const data = await response.json() as { items: NewsItem[] };
       setNews(data.items);
       setNewsStatus('ready');
     }).catch(() => setNewsStatus('error'));
-  }, [active, newsStatus]);
+  }, [active, newsStatus, newsRefreshTick]);
   const completed = tasks.filter((task) => task.done).length;
   const dailySpend = expenses.filter((item) => item.date === today).reduce((sum, item) => sum + item.amount, 0);
   const monthlySpend = useMemo(() => expenses.filter((item) => item.date.startsWith(today.slice(0, 7))).reduce((sum, item) => sum + item.amount, 0), [expenses, today]);

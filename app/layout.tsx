@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://pefish.github.io/task-daily/'),
   title: '暖暖online｜每日进步一点点',
   description: '集每日计划、开销记录与热点阅读于一体的温暖成长小助手。',
   openGraph: {
