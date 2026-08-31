@@ -4,20 +4,9 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 type Task = { id: string; text: string; done: boolean; date: string };
 type Expense = { id: string; title: string; amount: number; category: string; date: string };
+type NewsItem = { id: string; title: string; source: string; url: string; publishedAt: string };
 const todayKey = () => new Date().toLocaleDateString('sv-SE');
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
-const news = [
-  ['01', '科技', '新一代人工智能工具加速走进日常工作流', '从写作、设计到数据分析，个人效率工具持续迎来更新。'],
-  ['02', '财经', '消费市场释放新活力，服务消费关注度上升', '文旅、健康与数字服务成为近期讨论热点。'],
-  ['03', '社会', '多地推出便民新举措，公共服务体验升级', '线上办理与跨区域协同进一步覆盖高频事项。'],
-  ['04', '教育', '终身学习成为职场人的年度关键词', '微技能、项目制学习和实践型课程受到关注。'],
-  ['05', '健康', '规律睡眠与轻量运动再次登上健康话题榜', '专家建议从可坚持的小习惯开始改善状态。'],
-  ['06', '文化', '博物馆夜游与城市文化路线持续升温', '年轻人正在用新的方式打开传统文化。'],
-  ['07', '职场', '弹性工作与专注力管理引发讨论', '更清晰的目标拆分成为提升效率的关键。'],
-  ['08', '生活', '低成本整理法走红，给生活做一次减法', '从桌面到数字文件，轻量整理带来秩序感。'],
-  ['09', '环保', '绿色出行与循环消费融入更多生活场景', '可重复使用和旧物交换成为新的生活选择。'],
-  ['10', '趋势', '个人数字工具更重视数据隐私与长期陪伴', '简单、可信、可持续使用成为产品新方向。'],
-];
 const defaultTasks = ['晨间阅读 30 分钟', '完成今天最重要的一件事', '整理今日学习笔记'];
 
 export default function Home() {
@@ -26,6 +15,8 @@ export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [taskText, setTaskText] = useState('');
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsStatus, setNewsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [ready, setReady] = useState(false);
   const today = todayKey();
   useEffect(() => {
@@ -37,6 +28,16 @@ export default function Home() {
   }, [today]);
   useEffect(() => { if (ready) localStorage.setItem('nuannuan-tasks', JSON.stringify(tasks)); }, [tasks, ready]);
   useEffect(() => { if (ready) localStorage.setItem('nuannuan-expenses', JSON.stringify(expenses)); }, [expenses, ready]);
+  useEffect(() => {
+    if (active !== 'news' || newsStatus !== 'idle') return;
+    setNewsStatus('loading');
+    fetch('/api/news').then(async (response) => {
+      if (!response.ok) throw new Error('news unavailable');
+      const data = await response.json() as { items: NewsItem[] };
+      setNews(data.items);
+      setNewsStatus('ready');
+    }).catch(() => setNewsStatus('error'));
+  }, [active, newsStatus]);
   const completed = tasks.filter((task) => task.done).length;
   const dailySpend = expenses.filter((item) => item.date === today).reduce((sum, item) => sum + item.amount, 0);
   const monthlySpend = useMemo(() => expenses.filter((item) => item.date.startsWith(today.slice(0, 7))).reduce((sum, item) => sum + item.amount, 0), [expenses, today]);
@@ -61,7 +62,10 @@ export default function Home() {
         {expenseOpen && <form className="expense-form" onSubmit={addExpense}><input name="title" placeholder="花在了哪里？" required/><input name="amount" type="number" min="0.01" step="0.01" placeholder="金额" required/><select name="category"><option>餐饮</option><option>交通</option><option>学习</option><option>购物</option><option>其他</option></select><button>保存记录</button></form>}
         <div className="section-label"><h2>最近记录</h2><span>数据只保存在你的设备上</span></div><div className="expense-list">{expenses.map(item => <div key={item.id}><span className="expense-icon">¥</span><p><strong>{item.title}</strong><small>{item.date} · {item.category}</small></p><b>-{money(item.amount)}</b><button onClick={() => setExpenses(items => items.filter(i => i.id !== item.id))}>×</button></div>)}{!expenses.length && <div className="empty">还没有开销记录，今天也要理性消费呀。</div>}</div></>}
       {active === 'news' && <><div className="page-title"><div><p>TODAY&apos;S NEWS</p><h1>今天，世界发生了什么？</h1><span>每天 10 条热点，几分钟了解值得关注的新鲜事。</span></div><div className="news-date"><b>{new Date().getDate()}</b><span>{new Intl.DateTimeFormat('zh-CN', { month: 'short' }).format(new Date())}</span></div></div>
-        <div className="news-tip">☼ 今日热点已为你整理 · 内容为演示数据，接入新闻接口后可每日自动更新</div><div className="news-list">{news.map(([num, category, title, desc]) => <article key={num}><b>{num}</b><div><span>{category}</span><h2>{title}</h2><p>{desc}</p></div><button aria-label="查看新闻">↗</button></article>)}</div></>}
+        <div className="news-tip">☼ 今日热点来自 Google 新闻 · 每 15 分钟自动刷新</div>
+        {newsStatus === 'loading' && <div className="empty">正在为你整理今天的热点…</div>}
+        {newsStatus === 'error' && <div className="empty">热点暂时没有加载成功。<button className="retry" onClick={() => setNewsStatus('idle')}>重新加载</button></div>}
+        {newsStatus === 'ready' && <div className="news-list">{news.map((item) => <article key={item.id}><b>{item.id}</b><div><span>{item.source}</span><h2>{item.title}</h2><p>{new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(item.publishedAt))}</p></div><a href={item.url} target="_blank" rel="noreferrer" aria-label={`查看新闻：${item.title}`}>↗</a></article>)}</div>}</>}
     </section></div>
   </main>;
 }
