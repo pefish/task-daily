@@ -2,6 +2,14 @@ type NewsItem = { id: string; title: string; source: string; url: string; publis
 
 const FEED_URL = 'https://news.google.com/rss?hl=zh-CN&gl=CN&ceid=CN:zh-Hans';
 
+function secondsUntilNextBeijingEight() {
+  const now = new Date();
+  const beijing = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  let next = Date.UTC(beijing.getUTCFullYear(), beijing.getUTCMonth(), beijing.getUTCDate(), 0, 0, 0);
+  if (next <= now.getTime()) next += 24 * 60 * 60 * 1000;
+  return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
+}
+
 function decodeXml(value: string) {
   return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 }
@@ -22,11 +30,14 @@ function parseFeed(xml: string): NewsItem[] {
 
 export async function GET() {
   try {
-    const response = await fetch(FEED_URL, { headers: { 'User-Agent': 'NuannuanOnline/1.0' }, next: { revalidate: 900 } });
+    const response = await fetch(FEED_URL, { headers: { 'User-Agent': 'NuannuanOnline/1.0' }, cache: 'no-store' });
     if (!response.ok) throw new Error(`News feed returned ${response.status}`);
     const items = parseFeed(await response.text());
     if (!items.length) throw new Error('News feed was empty');
-    return Response.json({ items, provider: 'Google 新闻', updatedAt: new Date().toISOString() });
+    return Response.json(
+      { items, provider: 'Google 新闻', updatedAt: new Date().toISOString(), nextRefresh: '08:00 Asia/Shanghai' },
+      { headers: { 'Cache-Control': `public, max-age=0, s-maxage=${secondsUntilNextBeijingEight()}` } },
+    );
   } catch {
     return Response.json({ items: [], error: '热点暂时没有加载成功，请稍后再试。' }, { status: 503 });
   }

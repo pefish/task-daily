@@ -7,6 +7,13 @@ type Expense = { id: string; title: string; amount: number; category: string; da
 type NewsItem = { id: string; title: string; source: string; url: string; publishedAt: string };
 const todayKey = () => new Date().toLocaleDateString('sv-SE');
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+const msUntilNextBeijingEight = () => {
+  const now = new Date();
+  const beijing = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  let next = Date.UTC(beijing.getUTCFullYear(), beijing.getUTCMonth(), beijing.getUTCDate(), 0, 0, 0);
+  if (next <= now.getTime()) next += 24 * 60 * 60 * 1000;
+  return next - now.getTime();
+};
 const defaultTasks = ['晨间阅读 30 分钟', '完成今天最重要的一件事', '整理今日学习笔记'];
 
 export default function Home() {
@@ -17,6 +24,7 @@ export default function Home() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsStatus, setNewsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [newsRefreshTick, setNewsRefreshTick] = useState(0);
   const [ready, setReady] = useState(false);
   const today = todayKey();
   useEffect(() => {
@@ -28,6 +36,14 @@ export default function Home() {
   }, [today]);
   useEffect(() => { if (ready) localStorage.setItem('nuannuan-tasks', JSON.stringify(tasks)); }, [tasks, ready]);
   useEffect(() => { if (ready) localStorage.setItem('nuannuan-expenses', JSON.stringify(expenses)); }, [expenses, ready]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setNews([]);
+      setNewsStatus('idle');
+      setNewsRefreshTick((tick) => tick + 1);
+    }, msUntilNextBeijingEight());
+    return () => window.clearTimeout(timer);
+  }, [newsRefreshTick]);
   useEffect(() => {
     if (active !== 'news' || newsStatus !== 'idle') return;
     setNewsStatus('loading');
@@ -62,7 +78,7 @@ export default function Home() {
         {expenseOpen && <form className="expense-form" onSubmit={addExpense}><input name="title" placeholder="花在了哪里？" required/><input name="amount" type="number" min="0.01" step="0.01" placeholder="金额" required/><select name="category"><option>餐饮</option><option>交通</option><option>学习</option><option>购物</option><option>其他</option></select><button>保存记录</button></form>}
         <div className="section-label"><h2>最近记录</h2><span>数据只保存在你的设备上</span></div><div className="expense-list">{expenses.map(item => <div key={item.id}><span className="expense-icon">¥</span><p><strong>{item.title}</strong><small>{item.date} · {item.category}</small></p><b>-{money(item.amount)}</b><button onClick={() => setExpenses(items => items.filter(i => i.id !== item.id))}>×</button></div>)}{!expenses.length && <div className="empty">还没有开销记录，今天也要理性消费呀。</div>}</div></>}
       {active === 'news' && <><div className="page-title"><div><p>TODAY&apos;S NEWS</p><h1>今天，世界发生了什么？</h1><span>每天 10 条热点，几分钟了解值得关注的新鲜事。</span></div><div className="news-date"><b>{new Date().getDate()}</b><span>{new Intl.DateTimeFormat('zh-CN', { month: 'short' }).format(new Date())}</span></div></div>
-        <div className="news-tip">☼ 今日热点来自 Google 新闻 · 每 15 分钟自动刷新</div>
+        <div className="news-tip">☼ 今日热点来自 Google 新闻 · 每天早晨 8:00 更新</div>
         {newsStatus === 'loading' && <div className="empty">正在为你整理今天的热点…</div>}
         {newsStatus === 'error' && <div className="empty">热点暂时没有加载成功。<button className="retry" onClick={() => setNewsStatus('idle')}>重新加载</button></div>}
         {newsStatus === 'ready' && <div className="news-list">{news.map((item) => <article key={item.id}><b>{item.id}</b><div><span>{item.source}</span><h2>{item.title}</h2><p>{new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(item.publishedAt))}</p></div><a href={item.url} target="_blank" rel="noreferrer" aria-label={`查看新闻：${item.title}`}>↗</a></article>)}</div>}</>}
